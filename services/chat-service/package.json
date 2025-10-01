@@ -1,0 +1,22 @@
+{
+  "name": "chat-service",
+  "version": "1.0.0",
+  "description": "Real-time chat service using Socket.io",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "morgan": "^1.10.0",
+    "socket.io": "^4.7.2",
+    "mongoose": "^7.4.1",
+    "redis": "^4.6.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
