@@ -1,0 +1,196 @@
+version: '3.8'
+
+services:
+  # MongoDB services for each microservice
+  auth-db:
+    image: mongo:latest
+    container_name: auth-db
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - auth-db-data:/data/db
+
+  chat-db:
+    image: mongo:latest
+    container_name: chat-db
+    ports:
+      - "27018:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - chat-db-data:/data/db
+
+  media-db:
+    image: mongo:latest
+    container_name: media-db
+    ports:
+      - "27019:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - media-db-data:/data/db
+
+  notification-db:
+    image: mongo:latest
+    container_name: notification-db
+    ports:
+      - "27020:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - notification-db-data:/data/db
+
+  # Redis service
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  # RabbitMQ service
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+  # API Gateway service
+  api-gateway:
+    build:
+      context: ../services/api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - JWT_SECRET=dev_secret_key
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    volumes:
+      - ../services/api-gateway:/app
+      - /app/node_modules
+
+  # Auth service
+  auth-service:
+    build:
+      context: ../services/auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - MONGODB_URI=mongodb://admin:password@auth-db:27017/auth-service?authSource=admin
+      - JWT_SECRET=dev_secret_key
+      - JWT_EXPIRES_IN=1d
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - auth-db
+      - redis
+    volumes:
+      - ../services/auth-service:/app
+      - /app/node_modules
+
+  # Chat service
+  chat-service:
+    build:
+      context: ../services/chat-service
+      dockerfile: Dockerfile
+    container_name: chat-service
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - MONGODB_URI=mongodb://admin:password@chat-db:27017/chat-service?authSource=admin
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:password@rabbitmq
+      - ENCRYPTION_KEY=dev_encryption_key_32bytes!
+    depends_on:
+      - chat-db
+      - redis
+      - rabbitmq
+    volumes:
+      - ../services/chat-service:/app
+      - /app/node_modules
+
+  # Media service
+  media-service:
+    build:
+      context: ../services/media-service
+      dockerfile: Dockerfile
+    container_name: media-service
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - MONGODB_URI=mongodb://admin:password@media-db:27017/media-service?authSource=admin
+      - AWS_ACCESS_KEY_ID=your-access-key-id
+      - AWS_SECRET_ACCESS_KEY=your-secret-access-key
+      - AWS_REGION=us-east-1
+      - AWS_S3_BUCKET=your-s3-bucket-name
+    depends_on:
+      - media-db
+    volumes:
+      - ../services/media-service:/app
+      - /app/node_modules
+
+  # Notification service
+  notification-service:
+    build:
+      context: ../services/notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    ports:
+      - "3004:3004"
+    environment:
+      - PORT=3004
+      - MONGODB_URI=mongodb://admin:password@notification-db:27017/notification-service?authSource=admin
+      - RABBITMQ_URL=amqp://admin:password@rabbitmq
+      - EMAIL_SERVICE=gmail
+      - EMAIL_USER=your-email@gmail.com
+      - EMAIL_PASS=your-email-password
+      - FCM_SERVICE_ACCOUNT_KEY=your-fcm-key
+    depends_on:
+      - notification-db
+      - rabbitmq
+    volumes:
+      - ../services/notification-service:/app
+      - /app/node_modules
+
+  # Client application
+  client:
+    build:
+      context: ../client
+      dockerfile: Dockerfile
+    container_name: client
+    ports:
+      - "3005:3000"
+    volumes:
+      - ../client:/app
+      - /app/node_modules
+    depends_on:
+      - api-gateway
+
+volumes:
+  auth-db-data:
+  chat-db-data:
+  media-db-data:
+  notification-db-data:
+  redis-data:
+  rabbitmq-data:
